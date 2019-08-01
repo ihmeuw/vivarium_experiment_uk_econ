@@ -68,3 +68,17 @@ You'll find four directories inside the main
   Any post-processing and analysis code or notebooks you write should be
   stored in this directory.
 
+
+
+Running the model
+-----------------
+
+You can run a single draw of the full model with the command::
+
+    time simulate run src/vivarium_experiment_uk_econ/model_specifications/vivarium_experiment_uk_econ.yaml -v --pdb
+
+To launch all branches in a distributed run on the new cluster::
+    time psimulate run src/vivarium_experiment_uk_econ/model_specifications/vivarium_experiment_uk_econ.yaml \
+        src/vivarium_experiment_uk_econ/model_specifications/branches_uk_econ.yaml
+
+
