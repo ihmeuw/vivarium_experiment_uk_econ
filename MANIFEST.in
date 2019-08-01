@@ -2,5 +2,6 @@ include AUTHORS.rst
 include LICENSE
 include README.rst
 
+recursive-include src/vivarium_experiment_uk_econ/external_data *.csv *.xlsx
 recursive-include src/vivarium_experiment_uk_econ *.py *.yaml *.ipynb
 recursive-include tests *.py *txt *.yaml
