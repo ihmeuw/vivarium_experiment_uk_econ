@@ -3,12 +3,13 @@
 
 import pandas as pd
 import numpy as np
-import scipy.stats
+import scipy.stats, scipy.interpolate
 
 from vivarium.framework.engine import Builder
 from vivarium.framework.population import SimulantData
 from vivarium.framework.event import Event
 
+from vivarium_experiment_uk_econ.external_data.data import LOCAL_DATA_DIR
 
 class BasePopulation:
     """Generates a base population with a uniform distribution of age and sex.
@@ -235,23 +236,13 @@ class Income:
         self.tax_amount = builder.value.register_value_producer('tax_amount', source=self.get_tax_amount)
         self.net_income = builder.value.register_value_producer('net_income', source=self.get_net_income)
 
-        # TODO: load data on income
-        # df = pd.read_excel(fname, # how did I do this previously?
-        log_mean, log_sd = 5, 1
-        def before_tax_income_by_percentile_and_time(x, y):
-            return scipy.stats.lognorm(log_mean, scale=log_sd).ppf(x)
-        self.before_tax_income_by_percentile_and_time = before_tax_income_by_percentile_and_time
-
-        tax_rate = [[0,0],[10,3],[80,13],[85,70],[100,70]]
-        # setup spline for tax rate
-        import scipy.interpolate
-        tax_rate_data = np.array(tax_rate)
-        x = tax_rate_data[:,0]/100
-        y = tax_rate_data[:,1]/100
-        self.tax_rate_func = scipy.interpolate.interp1d(x, y)
-        def after_tax_income_by_percentile_and_time(x, y):
-            return scipy.stats.lognorm(log_mean, scale=log_sd).ppf(x) * (1 - self.tax_rate_func(x))
-        self.after_tax_income_by_percentile_and_time = after_tax_income_by_percentile_and_time
+        # load data on income, make interpolaters
+        self.income_func = {}
+        for when in ['before_tax', 'after_tax']:
+            fname = LOCAL_DATA_DIR.joinpath('income_data.xlsx')
+            df = pd.read_excel(fname, sheetname=f'{when}_income', index_col='percentile')
+            self.income_func[when] = \
+                        scipy.interpolate.interp2d(df.index, df.columns, df.values.T)
 
         builder.event.register_listener('time_step', self.accrue_values)
 
@@ -267,12 +258,12 @@ class Income:
     def get_income(self, index: pd.Index) -> pd.Series:
         year = self.clock().year
         pop = self.population_view.get(index)
-        return self.before_tax_income_by_percentile_and_time(pop.income_propensity, year)
+        return self.income_func['before_tax'](100*pop.income_propensity, year)
 
     def get_after_tax_income(self, index: pd.Index) -> pd.Series:
         year = self.clock().year
         pop = self.population_view.get(index)
-        return self.after_tax_income_by_percentile_and_time(pop.income_propensity, year)
+        return self.income_func['after_tax'](100*pop.income_propensity, year)
 
     def get_tax_amount(self, index: pd.Index) -> pd.Series:
         return self.income(index) - self.after_tax_income(index)
@@ -293,6 +284,7 @@ class Income:
         pop = self.population_view.get(event.index)
         step_size = event.step_size / pd.Timedelta('365.25 days')
 
+        # TODO: use economist-approved utility function
         utility_rate = np.log(self.net_income(event.index))
         pop.utility += utility_rate * step_size
 
@@ -315,7 +307,7 @@ class Taxes:
 
     configuration_defaults = {
         'taxes' : {
-            'non_health_fraction': .9,
+            'non_health_fraction': .9,  # TODO: find this fraction empirically from GHE estimates
             'health_benefit': 0.0001,
         }
     }
@@ -337,7 +329,7 @@ class Taxes:
         return np.sum(self.individual_taxes(index))
 
     def increase_net_income(self, index: pd.Index, net_income: pd.Series) -> pd.Series:
-        return (net_income
+        return (net_income 
                 + self.config.taxes.non_health_fraction * self.total_taxes(index) / len(index))
 
     def reduce_mortality(self, index: pd.Index, mortality_rate: pd.Series) -> pd.Series:
@@ -366,3 +358,4 @@ class UtilityObserver():
                     })
 
         return metrics
+

@@ -27,6 +27,8 @@ if __name__ == "__main__":
         'tables<=3.4.0',
         'pandas<0.25',
 
+        'xlrd',
+
         'scipy',
         'matplotlib',
         'seaborn',
@@ -35,6 +37,7 @@ if __name__ == "__main__":
         'pytest',
         'pytest-mock',
         'pyyaml',
+        'pdbpp',
     ]
 
     setup(

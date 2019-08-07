@@ -1,5 +1,5 @@
 components:
-    uk_econ.components:
+    vivarium_experiment_uk_econ.components:
         uk_econ:
             - BasePopulation()
             - Income()
