@@ -236,8 +236,6 @@ class Income:
         self.tax_amount = builder.value.register_value_producer('tax_amount', source=self.get_tax_amount)
         self.net_income = builder.value.register_value_producer('net_income', source=self.get_net_income)
 
-        # TODO: load data on income correctly;
-        # how did I do this previously?
         self.income_func = {}
         for when in ['before_tax', 'after_tax']:
             fname = LOCAL_DATA_DIR.joinpath('income_data.xlsx')
@@ -284,6 +282,14 @@ class Income:
         """
         pop = self.population_view.get(event.index)
         step_size = event.step_size / pd.Timedelta('365.25 days')
+
+        # Our utility follows utility function from Atkinson, Measurement
+        # of Inequality (p. 251)
+        # U(y) = A + B y**(1-eps)/(1-eps) if eps \neq 1
+        #      = log(y)                   if eps = 1
+
+        # Atkinson varied eps from 1 to 2.5, but I don't know what A
+        # or B should be.  How about A = 0 and B = 1?
 
         utility_rate = np.log(self.net_income(event.index))
         pop.utility += utility_rate * step_size
