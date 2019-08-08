@@ -291,7 +291,14 @@ class Income:
         # Atkinson varied eps from 1 to 2.5, but I don't know what A
         # or B should be.  How about A = 0 and B = 1?
 
-        utility_rate = np.log(self.net_income(event.index))
+        eps = .5
+        if eps == 1:
+            utility_rate = np.log(self.net_income(event.index))
+        elif eps == 0:
+            utility_rate = self.net_income(event.index)
+        else:
+            utility_rate = (self.net_income(event.index))**(1-eps) / (1-eps)
+            
         pop.utility += utility_rate * step_size
 
         taxes = self.tax_amount(event.index)
