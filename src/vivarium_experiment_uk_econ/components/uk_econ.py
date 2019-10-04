@@ -236,6 +236,7 @@ class Income:
         self.tax_amount = builder.value.register_value_producer('tax_amount', source=self.get_tax_amount)
         self.net_income = builder.value.register_value_producer('net_income', source=self.get_net_income)
 
+        # load data on income, make interpolaters
         self.income_func = {}
         for when in ['before_tax', 'after_tax']:
             fname = LOCAL_DATA_DIR.joinpath('income_data.xlsx')
@@ -320,7 +321,7 @@ class Taxes:
 
     configuration_defaults = {
         'taxes' : {
-            'non_health_fraction': .9,
+            'non_health_fraction': .9,  # TODO: find this fraction empirically from GHE estimates
             'health_benefit': 0.0001,
         }
     }
