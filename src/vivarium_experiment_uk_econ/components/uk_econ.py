@@ -224,7 +224,7 @@ class Income:
         self.config = builder.configuration
         self.income_randomness = builder.randomness.get_stream('income_initialization')
 
-        columns_created = ['income_propensity', 'utility', 'taxes']
+        columns_created = ['income_propensity', 'taxes'] + [f'utility_{eps}' for eps in utility_epsilon_list]
         builder.population.initializes_simulants(self.on_initialize_simulants,
                                                  creates_columns=columns_created)
         self.population_view = builder.population.get_view(columns_created, query="alive == 'alive'")
@@ -251,7 +251,8 @@ class Income:
         population = pd.DataFrame({
             'income_propensity': income_propensity,
             })
-        population['utility'] = 0.0
+        for eps in utility_epsilon_list:
+            population[f'utility_{eps}'] = 0.0
         population['taxes'] = 0.0
         self.population_view.update(population)
 
@@ -284,9 +285,23 @@ class Income:
         pop = self.population_view.get(event.index)
         step_size = event.step_size / pd.Timedelta('365.25 days')
 
-        # TODO: use economist-approved utility function
-        utility_rate = np.log(self.net_income(event.index))
-        pop.utility += utility_rate * step_size
+        # Our utility follows utility function from Atkinson, Measurement
+        # of Inequality (p. 251)
+        # U(y) = A + B y**(1-eps)/(1-eps) if eps \neq 1
+        #      = log(y)                   if eps = 1
+
+        # Atkinson varied eps from 1 to 2.5, but I don't know what A
+        # or B should be.  How about A = 0 and B = 1?
+
+        for eps in utility_epsilon_list:
+            if eps == 1:
+                utility_rate = np.log(self.net_income(event.index))
+            elif eps == 0:
+                utility_rate = self.net_income(event.index)
+            else:
+                utility_rate = (self.net_income(event.index))**(1-eps) / (1-eps)
+
+            pop[f'utility_{eps}'] += utility_rate * step_size
 
         taxes = self.tax_amount(event.index)
         pop.taxes += taxes * step_size
@@ -344,7 +359,8 @@ class UtilityObserver():
         self.config = builder.configuration
         self.total_taxes = builder.value.get_value('total_taxes')
 
-        self.population_view = builder.population.get_view(['alive', 'utility', 'taxes'])
+        self.population_view = builder.population.get_view(['alive', 'taxes'] + 
+                                    [f'utility_{eps}' for eps in utility_epsilon_list])
         self.gross_income = builder.value.get_value('income')
         self.net_income = builder.value.get_value('net_income')
         builder.value.register_value_modifier('metrics', modifier=self.metrics)
@@ -352,10 +368,12 @@ class UtilityObserver():
     def metrics(self, index, metrics):
         pop = self.population_view.get(index)
         metrics.update({'death_count': np.sum(pop.alive == 'dead'),
-                        'utility': np.sum(pop.utility),
                         'taxes_spent_on_health': (1-self.config.taxes.non_health_fraction) * np.sum(pop.taxes),
                         'gdp_pc': self.gross_income(index).mean(),
                     })
+        for eps in utility_epsilon_list:
+            metrics[f'utility_{eps}'] = np.sum(pop[f'utility_{eps}'])
 
         return metrics
 
+utility_epsilon_list = np.linspace(0, 1, 10)
