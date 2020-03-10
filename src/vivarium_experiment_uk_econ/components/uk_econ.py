@@ -376,4 +376,4 @@ class UtilityObserver():
 
         return metrics
 
-utility_epsilon_list = np.linspace(0, 1, 10)
+utility_epsilon_list = np.linspace(0, 1, 100)
